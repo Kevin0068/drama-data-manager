@@ -452,7 +452,12 @@ class MonthView:
         dialog.title("选择求和列")
         dialog.transient(self.parent)
         dialog.grab_set()
-        dialog.geometry("400x500")
+        # 根据数值列数量动态计算高度，确保默认能显示全部
+        row_height = 32
+        base_height = 320  # 按钮+结果+范围选择等固定区域
+        cols_height = len(numeric_cols) * row_height
+        dialog_height = min(base_height + cols_height, 800)
+        dialog.geometry(f"400x{dialog_height}")
         dialog.minsize(360, 400)
 
         tk.Label(dialog, text="请勾选要求和的列：", font=FONT).pack(pady=(12, 4))
@@ -512,6 +517,7 @@ class MonthView:
                 rows = self.all_rows
 
             lines = [f"数据范围: {'当前显示' if range_var.get() == 'displayed' else '全部'} ({len(rows)} 行)\n"]
+            grand_total = 0.0
             for col_idx in selected_cols:
                 total = 0.0
                 count = 0
@@ -519,7 +525,11 @@ class MonthView:
                     if col_idx < len(row) and isinstance(row[col_idx], (int, float)):
                         total += row[col_idx]
                         count += 1
+                grand_total += total
                 lines.append(f"{self.headers[col_idx]}: {self._format_number(total)}  ({count} 个数值)")
+
+            if len(selected_cols) > 1:
+                lines.append(f"\n合计总和: {self._format_number(grand_total)}")
 
             result_text.config(state=tk.NORMAL)
             result_text.delete("1.0", tk.END)

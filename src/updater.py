@@ -177,13 +177,30 @@ def _download_and_install(dialog, root, url, progress_var, progress_label, updat
             dialog.destroy()
             return
 
-        # 运行安装包（静默模式），然后退出当前程序
+        # 获取当前 exe 路径，安装完成后重新启动
+        exe_path = sys.executable
+
+        # 运行安装包（静默模式），安装完成后自动启动应用
+        # 使用 cmd /c 等待安装完成后再启动
         try:
-            subprocess.Popen([setup_path, "/SILENT", "/CLOSEAPPLICATIONS",
-                              "/RESTARTAPPLICATIONS"], shell=False)
+            bat_content = (
+                f'@echo off\n'
+                f'"{setup_path}" /SILENT /CLOSEAPPLICATIONS /NORESTART\n'
+                f'start "" "{exe_path}"\n'
+                f'del "%~f0"\n'
+            )
+            bat_path = os.path.join(tempfile.gettempdir(), "drama_update.bat")
+            with open(bat_path, "w", encoding="gbk") as f:
+                f.write(bat_content)
+            subprocess.Popen(["cmd", "/c", bat_path],
+                             creationflags=subprocess.CREATE_NO_WINDOW, shell=False)
         except Exception:
-            # 非静默模式 fallback
-            os.startfile(setup_path)
+            # fallback: 直接运行安装包
+            try:
+                subprocess.Popen([setup_path, "/SILENT", "/CLOSEAPPLICATIONS",
+                                  "/RESTARTAPPLICATIONS"], shell=False)
+            except Exception:
+                os.startfile(setup_path)
 
         sys.exit(0)
 
