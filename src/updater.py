@@ -96,10 +96,11 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     dialog = tk.Toplevel(root)
     dialog.title("发现新版本")
     dialog.geometry("500x480")
-    dialog.minsize(400, 400)
+    dialog.minsize(400, 300)
     dialog.transient(root)
     dialog.grab_set()
 
+    # 顶部信息
     tk.Label(dialog, text=f"新版本 {new_version} 可用",
              font=("Microsoft YaHei", 14, "bold")).pack(pady=(16, 4))
     tk.Label(dialog, text=f"当前版本: v{__version__}", font=FONT_SMALL).pack()
@@ -107,24 +108,11 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     tk.Label(dialog, text="更新日志:", font=FONT, anchor=tk.W).pack(
         fill=tk.X, padx=16, pady=(12, 4))
 
-    text_frame = tk.Frame(dialog)
-    text_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=(0, 8))
-
-    scrollbar = tk.Scrollbar(text_frame)
-    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-    text_widget = tk.Text(text_frame, font=FONT_SMALL, wrap=tk.WORD,
-                          yscrollcommand=scrollbar.set, state=tk.NORMAL)
-    text_widget.insert("1.0", changelog)
-    text_widget.config(state=tk.DISABLED)
-    text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    scrollbar.config(command=text_widget.yview)
-
-    # 按钮区域（先 pack 到底部，确保始终可见）
+    # 先 pack 底部按钮（确保始终可见）
     btn_frame = tk.Frame(dialog)
     btn_frame.pack(side=tk.BOTTOM, pady=(0, 16))
 
-    # 进度条（初始隐藏）
+    # 进度条（初始隐藏，放在按钮上方）
     progress_frame = tk.Frame(dialog)
     progress_var = tk.DoubleVar(value=0)
     progress_bar = ttk.Progressbar(progress_frame, variable=progress_var,
@@ -138,6 +126,20 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     cancel_btn = tk.Button(btn_frame, text="稍后再说", font=FONT,
                            command=dialog.destroy)
     cancel_btn.pack(side=tk.LEFT, padx=8)
+
+    # 中间更新日志（最后 pack，自动填充剩余空间）
+    text_frame = tk.Frame(dialog)
+    text_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=(0, 8))
+
+    scrollbar = tk.Scrollbar(text_frame)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    text_widget = tk.Text(text_frame, font=FONT_SMALL, wrap=tk.WORD,
+                          yscrollcommand=scrollbar.set, state=tk.NORMAL)
+    text_widget.insert("1.0", changelog)
+    text_widget.config(state=tk.DISABLED)
+    text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    scrollbar.config(command=text_widget.yview)
 
     def _do_update():
         update_btn.config(state=tk.DISABLED, text="下载中...")
