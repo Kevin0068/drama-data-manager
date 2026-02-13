@@ -44,5 +44,5 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
-    icon=None,
+    icon='assets/app.ico',
 )
