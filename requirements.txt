@@ -1,0 +1,4 @@
+openpyxl>=3.1.0
+xlrd>=2.0.0
+pytest>=7.0.0
+hypothesis>=6.0.0
