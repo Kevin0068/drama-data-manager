@@ -6,9 +6,11 @@ from tkinter import simpledialog, messagebox
 
 from src.database import Database
 from src.dao.backend_dao import BackendDAO
+from src.version import __version__
 
 FONT = ("Microsoft YaHei", 11)
 FONT_TITLE = ("Microsoft YaHei", 16, "bold")
+FONT_SMALL = ("Microsoft YaHei", 9)
 
 
 class MainWindow:
@@ -53,6 +55,14 @@ class MainWindow:
         tk.Button(
             btn_frame, text="删除后台", font=FONT, command=self._delete_backend
         ).pack(side=tk.LEFT, padx=8)
+        tk.Button(
+            btn_frame, text="检查更新", font=FONT, command=self._check_update
+        ).pack(side=tk.LEFT, padx=8)
+
+        # 底部版本号
+        tk.Label(
+            self.content_frame, text=f"v{__version__}", font=FONT_SMALL, fg="gray"
+        ).pack(side=tk.BOTTOM, pady=(0, 4))
 
         self._refresh_list()
 
@@ -119,3 +129,8 @@ class MainWindow:
         for widget in self.content_frame.winfo_children():
             widget.destroy()
         self._build()
+
+    def _check_update(self):
+        """手动检查更新。"""
+        from src.updater import manual_check_update
+        manual_check_update(self.root)
