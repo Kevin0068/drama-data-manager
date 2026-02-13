@@ -39,6 +39,7 @@ class MonthView:
         self._sort_col: int | None = None
         self._sort_reverse: bool = False
         self._displayed_original_indices: list[int | None] = []
+        self._hidden_cols: set[int] = set()
 
         self._build()
         self._load_data()
@@ -61,6 +62,7 @@ class MonthView:
         tk.Button(toolbar, text="重新匹配", font=FONT, command=self._run_match).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="手动添加", font=FONT, command=self._manual_add).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="列求和", font=FONT, command=self._column_sum_dialog).pack(side=tk.LEFT, padx=4)
+        tk.Button(toolbar, text="隐藏列", font=FONT, command=self._toggle_columns_dialog).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="导出", font=FONT, command=self._export_data).pack(side=tk.LEFT, padx=4)
 
         # 视图切换
@@ -128,8 +130,9 @@ class MonthView:
             self._update_stats([])
             return
 
-        # 设置列（带排序点击）
-        cols = [f"c{i}" for i in range(len(self.headers))]
+        # 设置列（带排序点击），跳过隐藏列
+        visible_cols = [(i, h) for i, h in enumerate(self.headers) if i not in self._hidden_cols]
+        cols = [f"c{i}" for i, _ in visible_cols]
         self.tree["columns"] = cols
 
         # 筛选行（视图模式） - 保留原始索引
@@ -167,7 +170,7 @@ class MonthView:
 
         # 计算列宽
         col_widths = []
-        for i, header in enumerate(self.headers):
+        for i, header in visible_cols:
             max_len = len(str(header))
             for _, row in indexed_rows[:50]:
                 if i < len(row) and row[i] is not None:
@@ -175,22 +178,26 @@ class MonthView:
             width = min(max(max_len * 12 + 20, 60), 300)
             col_widths.append(width)
 
-        for i, header in enumerate(self.headers):
+        for idx, (i, header) in enumerate(visible_cols):
             arrow = ""
             if self._sort_col == i:
                 arrow = " ▼" if self._sort_reverse else " ▲"
-            self.tree.heading(cols[i], text=header + arrow,
+            self.tree.heading(cols[idx], text=header + arrow,
                               command=lambda c=i: self._on_sort(c))
-            self.tree.column(cols[i], width=col_widths[i], minwidth=50, stretch=False)
+            self.tree.column(cols[idx], width=col_widths[idx], minwidth=50, stretch=False)
 
         # 插入数据行
         self._displayed_original_indices = []
         matched_set = set(self.matched_indices)
+        visible_indices = [i for i, _ in visible_cols]
         for orig_idx, row in indexed_rows:
             self._displayed_original_indices.append(orig_idx)
-            values = [str(v) if v is not None else "" for v in row]
-            while len(values) < len(self.headers):
-                values.append("")
+            values = []
+            for i in visible_indices:
+                if i < len(row) and row[i] is not None:
+                    values.append(str(row[i]))
+                else:
+                    values.append("")
             tag = "matched" if orig_idx in matched_set else ""
             self.tree.insert("", tk.END, values=values, tags=(tag,))
 
@@ -510,6 +517,61 @@ class MonthView:
         btn_frame.pack(pady=(0, 12))
         tk.Button(btn_frame, text="计算", font=FONT, command=_calc).pack(side=tk.LEFT, padx=8)
         tk.Button(btn_frame, text="关闭", font=FONT, command=dialog.destroy).pack(side=tk.LEFT, padx=8)
+
+    def _toggle_columns_dialog(self):
+        """弹出对话框让用户勾选要显示/隐藏的列。"""
+        if not self.headers:
+            messagebox.showinfo("提示", "没有数据", parent=self.parent)
+            return
+
+        dialog = tk.Toplevel(self.parent)
+        dialog.title("显示/隐藏列")
+        dialog.transient(self.parent)
+        dialog.grab_set()
+        dialog.geometry("350x450")
+
+        tk.Label(dialog, text="勾选要显示的列：", font=FONT).pack(pady=(12, 4))
+
+        check_frame = tk.Frame(dialog)
+        check_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=4)
+
+        canvas = tk.Canvas(check_frame)
+        scrollbar = tk.Scrollbar(check_frame, orient=tk.VERTICAL, command=canvas.yview)
+        inner_frame = tk.Frame(canvas)
+
+        inner_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        col_vars = {}
+        for i, header in enumerate(self.headers):
+            var = tk.BooleanVar(value=(i not in self._hidden_cols))
+            col_vars[i] = var
+            tk.Checkbutton(inner_frame, text=header, variable=var, font=FONT).pack(anchor=tk.W, pady=2)
+
+        btn_frame = tk.Frame(dialog)
+        btn_frame.pack(pady=(0, 12))
+
+        def _apply():
+            self._hidden_cols = {i for i, var in col_vars.items() if not var.get()}
+            self._refresh_table()
+            dialog.destroy()
+
+        def _select_all():
+            for var in col_vars.values():
+                var.set(True)
+
+        def _deselect_all():
+            for var in col_vars.values():
+                var.set(False)
+
+        tk.Button(btn_frame, text="全选", font=FONT_SMALL, command=_select_all).pack(side=tk.LEFT, padx=4)
+        tk.Button(btn_frame, text="全不选", font=FONT_SMALL, command=_deselect_all).pack(side=tk.LEFT, padx=4)
+        tk.Button(btn_frame, text="确定", font=FONT, command=_apply).pack(side=tk.LEFT, padx=8)
+        tk.Button(btn_frame, text="取消", font=FONT, command=dialog.destroy).pack(side=tk.LEFT, padx=4)
 
     def _go_back(self):
         """返回后台界面。"""
