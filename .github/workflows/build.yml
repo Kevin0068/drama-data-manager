@@ -28,4 +28,4 @@ jobs:
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/剧名数据管理系统.exe
+          files: dist/DramaDataManager.exe
