@@ -40,6 +40,7 @@ class MonthView:
         self._sort_reverse: bool = False
         self._displayed_original_indices: list[int | None] = []
         self._hidden_cols: set[int] = set()
+        self._selected_cell_value: str = ""
 
         self._build()
         self._load_data()
@@ -102,6 +103,14 @@ class MonthView:
 
         table_frame.grid_rowconfigure(0, weight=1)
         table_frame.grid_columnconfigure(0, weight=1)
+
+        # 单元格点击选中 + Ctrl+C 复制
+        self.tree.bind("<ButtonRelease-1>", self._on_cell_click)
+        self.tree.bind("<Control-c>", self._on_copy)
+
+        # 选中单元格提示栏
+        self.cell_label = tk.Label(self.parent, text="", font=FONT_SMALL, fg="blue", anchor=tk.W)
+        self.cell_label.pack(fill=tk.X, padx=16)
 
         # 底部统计栏（基本统计 + 可滚动合计区域）
         stats_frame = tk.Frame(self.parent)
@@ -572,6 +581,48 @@ class MonthView:
         tk.Button(btn_frame, text="全不选", font=FONT_SMALL, command=_deselect_all).pack(side=tk.LEFT, padx=4)
         tk.Button(btn_frame, text="确定", font=FONT, command=_apply).pack(side=tk.LEFT, padx=8)
         tk.Button(btn_frame, text="取消", font=FONT, command=dialog.destroy).pack(side=tk.LEFT, padx=4)
+
+    def _on_cell_click(self, event):
+        """点击表格时识别具体单元格，显示选中值。"""
+        region = self.tree.identify_region(event.x, event.y)
+        if region != "cell":
+            return
+        item = self.tree.identify_row(event.y)
+        column = self.tree.identify_column(event.x)
+        if not item or not column:
+            return
+        # column 格式为 "#1", "#2" 等
+        col_idx = int(column.replace("#", "")) - 1
+        values = self.tree.item(item, "values")
+        if col_idx < len(values):
+            self._selected_cell_value = str(values[col_idx])
+            # 获取列名
+            col_id = self.tree["columns"][col_idx] if col_idx < len(self.tree["columns"]) else ""
+            col_name = self.tree.heading(col_id, "text") if col_id else ""
+            # 去掉排序箭头
+            col_name = col_name.replace(" ▲", "").replace(" ▼", "")
+            self.cell_label.config(
+                text=f"选中: [{col_name}] {self._selected_cell_value}  (Ctrl+C 复制)"
+            )
+
+    def _on_copy(self, event=None):
+        """Ctrl+C 复制选中的单元格值到剪贴板。"""
+        if self._selected_cell_value:
+            self.parent.clipboard_clear()
+            self.parent.clipboard_append(self._selected_cell_value)
+            self.cell_label.config(text=f"已复制: {self._selected_cell_value}")
+        else:
+            # 没有选中单元格时，复制整行
+            selected = self.tree.selection()
+            if selected:
+                rows_text = []
+                for item in selected:
+                    values = self.tree.item(item, "values")
+                    rows_text.append("\t".join(str(v) for v in values))
+                text = "\n".join(rows_text)
+                self.parent.clipboard_clear()
+                self.parent.clipboard_append(text)
+                self.cell_label.config(text=f"已复制 {len(selected)} 行")
 
     def _go_back(self):
         """返回后台界面。"""
