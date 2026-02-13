@@ -95,7 +95,8 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     """弹窗显示新版本信息、更新日志，支持一键下载替换重启。"""
     dialog = tk.Toplevel(root)
     dialog.title("发现新版本")
-    dialog.geometry("500x420")
+    dialog.geometry("500x480")
+    dialog.minsize(400, 400)
     dialog.transient(root)
     dialog.grab_set()
 
@@ -119,6 +120,10 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     scrollbar.config(command=text_widget.yview)
 
+    # 按钮区域（先 pack 到底部，确保始终可见）
+    btn_frame = tk.Frame(dialog)
+    btn_frame.pack(side=tk.BOTTOM, pady=(0, 16))
+
     # 进度条（初始隐藏）
     progress_frame = tk.Frame(dialog)
     progress_var = tk.DoubleVar(value=0)
@@ -127,10 +132,6 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     progress_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
     progress_label = tk.Label(progress_frame, text="0%", font=FONT_SMALL)
     progress_label.pack(side=tk.RIGHT)
-
-    # 按钮区域
-    btn_frame = tk.Frame(dialog)
-    btn_frame.pack(pady=(0, 16))
 
     update_btn = tk.Button(btn_frame, text="立即更新", font=FONT)
     update_btn.pack(side=tk.LEFT, padx=8)
@@ -141,8 +142,7 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     def _do_update():
         update_btn.config(state=tk.DISABLED, text="下载中...")
         cancel_btn.config(state=tk.DISABLED)
-        progress_frame.pack(fill=tk.X, padx=16, pady=(0, 8),
-                            before=btn_frame)
+        progress_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=16, pady=(0, 8))
         _download_and_replace(dialog, root, download_url,
                               progress_var, progress_label, update_btn)
 
