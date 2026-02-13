@@ -453,6 +453,7 @@ class MonthView:
         dialog.transient(self.parent)
         dialog.grab_set()
         dialog.geometry("400x500")
+        dialog.minsize(360, 400)
 
         tk.Label(dialog, text="请勾选要求和的列：", font=FONT).pack(pady=(12, 4))
 
@@ -465,7 +466,15 @@ class MonthView:
         tk.Radiobutton(range_frame, text="全部行", variable=range_var,
                         value="all", font=FONT_SMALL).pack(side=tk.LEFT, padx=4)
 
-        # 列勾选
+        # 底部按钮 - 先 pack，确保始终可见
+        btn_frame = tk.Frame(dialog)
+        btn_frame.pack(side=tk.BOTTOM, pady=(0, 12))
+
+        # 结果区域 - 先 pack 到底部
+        result_text = tk.Text(dialog, font=FONT_SMALL, height=6, state=tk.DISABLED)
+        result_text.pack(side=tk.BOTTOM, fill=tk.X, padx=16, pady=4)
+
+        # 列勾选 - 最后 pack，占据剩余空间
         check_frame = tk.Frame(dialog)
         check_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=4)
 
@@ -486,10 +495,6 @@ class MonthView:
             col_vars[col_idx] = var
             tk.Checkbutton(inner_frame, text=self.headers[col_idx],
                            variable=var, font=FONT).pack(anchor=tk.W, pady=2)
-
-        # 结果区域
-        result_text = tk.Text(dialog, font=FONT_SMALL, height=6, state=tk.DISABLED)
-        result_text.pack(fill=tk.X, padx=16, pady=4)
 
         def _calc():
             selected_cols = [idx for idx, var in col_vars.items() if var.get()]
@@ -521,8 +526,6 @@ class MonthView:
             result_text.insert("1.0", "\n".join(lines))
             result_text.config(state=tk.DISABLED)
 
-        btn_frame = tk.Frame(dialog)
-        btn_frame.pack(pady=(0, 12))
         tk.Button(btn_frame, text="计算", font=FONT, command=_calc).pack(side=tk.LEFT, padx=8)
         tk.Button(btn_frame, text="关闭", font=FONT, command=dialog.destroy).pack(side=tk.LEFT, padx=8)
 
