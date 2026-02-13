@@ -48,3 +48,36 @@ class BackendDAO:
         conn = self._db.get_connection()
         cursor = conn.execute("SELECT id, name FROM backends ORDER BY id")
         return cursor.fetchall()
+
+    def rename(self, backend_id: int, new_name: str) -> None:
+        """重命名后台。
+
+        Args:
+            backend_id: 后台 ID。
+            new_name: 新名称。
+
+        Raises:
+            sqlite3.IntegrityError: 新名称已存在。
+        """
+        conn = self._db.get_connection()
+        conn.execute(
+            "UPDATE backends SET name = ? WHERE id = ?", (new_name, backend_id)
+        )
+        conn.commit()
+
+    def rename(self, backend_id: int, new_name: str) -> None:
+        """重命名后台。
+
+        Args:
+            backend_id: 后台 ID。
+            new_name: 新名称。
+
+        Raises:
+            sqlite3.IntegrityError: 新名称已存在。
+        """
+        conn = self._db.get_connection()
+        conn.execute(
+            "UPDATE backends SET name = ? WHERE id = ?", (new_name, backend_id)
+        )
+        conn.commit()
+

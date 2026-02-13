@@ -53,6 +53,9 @@ class MainWindow:
             btn_frame, text="新建后台", font=FONT, command=self._create_backend
         ).pack(side=tk.LEFT, padx=8)
         tk.Button(
+            btn_frame, text="重命名", font=FONT, command=self._rename_backend
+        ).pack(side=tk.LEFT, padx=8)
+        tk.Button(
             btn_frame, text="删除后台", font=FONT, command=self._delete_backend
         ).pack(side=tk.LEFT, padx=8)
         tk.Button(
@@ -103,6 +106,27 @@ class MainWindow:
         ):
             return
         self.backend_dao.delete(backend_id)
+        self._refresh_list()
+
+    def _rename_backend(self):
+        """重命名选中的后台。"""
+        sel = self.listbox.curselection()
+        if not sel:
+            messagebox.showinfo("提示", "请先选择一个后台", parent=self.root)
+            return
+        idx = sel[0]
+        backend_id, backend_name = self._backends[idx]
+        new_name = simpledialog.askstring(
+            "重命名后台", f"当前名称: {backend_name}\n请输入新名称：",
+            parent=self.root, initialvalue=backend_name
+        )
+        if not new_name or not new_name.strip() or new_name.strip() == backend_name:
+            return
+        try:
+            self.backend_dao.rename(backend_id, new_name.strip())
+        except Exception:
+            messagebox.showwarning("提示", f"后台 \"{new_name.strip()}\" 已存在", parent=self.root)
+            return
         self._refresh_list()
 
     def _enter_backend(self):

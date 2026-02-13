@@ -60,3 +60,44 @@ class MonthDAO:
             (backend_id,),
         )
         return cursor.fetchall()
+
+    def rename(self, month_id: int, new_label: str) -> None:
+        """重命名月份。
+
+        Args:
+            month_id: 月份 ID。
+            new_label: 新标签。
+
+        Raises:
+            ValueError: 新标签已存在。
+        """
+        conn = self._db.get_connection()
+        try:
+            conn.execute(
+                "UPDATE months SET label = ? WHERE id = ?", (new_label, month_id)
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            raise ValueError(f"月份 '{new_label}' 已存在")
+
+    def rename(self, month_id: int, new_label: str) -> None:
+        """重命名月份。
+
+        Args:
+            month_id: 月份 ID。
+            new_label: 新标签。
+
+        Raises:
+            ValueError: 新标签已存在。
+        """
+        conn = self._db.get_connection()
+        try:
+            conn.execute(
+                "UPDATE months SET label = ? WHERE id = ?", (new_label, month_id)
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            raise ValueError(f"月份 '{new_label}' 已存在")
+

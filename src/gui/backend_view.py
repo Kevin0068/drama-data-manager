@@ -48,6 +48,7 @@ class BackendView:
         btn_frame.pack(pady=(4, 16))
 
         tk.Button(btn_frame, text="新建月份", font=FONT, command=self._create_month).pack(side=tk.LEFT, padx=8)
+        tk.Button(btn_frame, text="重命名", font=FONT, command=self._rename_month).pack(side=tk.LEFT, padx=8)
         tk.Button(btn_frame, text="删除月份", font=FONT, command=self._delete_month).pack(side=tk.LEFT, padx=8)
         tk.Button(btn_frame, text="管理剧名库", font=FONT, command=self._open_drama_library).pack(side=tk.LEFT, padx=8)
 
@@ -90,6 +91,27 @@ class BackendView:
         ):
             return
         self.month_dao.delete(month_id)
+        self._refresh_list()
+
+    def _rename_month(self):
+        """重命名选中的月份。"""
+        sel = self.listbox.curselection()
+        if not sel:
+            messagebox.showinfo("提示", "请先选择一个月份", parent=self.parent)
+            return
+        idx = sel[0]
+        month_id, month_label = self._months[idx]
+        new_label = simpledialog.askstring(
+            "重命名月份", f"当前名称: {month_label}\n请输入新名称：",
+            parent=self.parent, initialvalue=month_label
+        )
+        if not new_label or not new_label.strip() or new_label.strip() == month_label:
+            return
+        try:
+            self.month_dao.rename(month_id, new_label.strip())
+        except ValueError:
+            messagebox.showwarning("提示", f"月份 \"{new_label.strip()}\" 已存在", parent=self.parent)
+            return
         self._refresh_list()
 
     def _open_drama_library(self):
