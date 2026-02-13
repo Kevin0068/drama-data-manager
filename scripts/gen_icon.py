@@ -20,10 +20,16 @@ mask_draw.rounded_rectangle([(0, 0), (SIZE - 1, SIZE - 1)], radius=40, fill=255)
 img.putalpha(mask)
 
 # 白色文字 "剧"
-try:
-    font = ImageFont.truetype("msyh.ttc", 160)
-except Exception:
-    font = ImageFont.truetype("simsun.ttc", 160)
+font = None
+for font_name in ["msyh.ttc", "simsun.ttc", "C:/Windows/Fonts/msyh.ttc",
+                   "C:/Windows/Fonts/simsun.ttc", "C:/Windows/Fonts/arial.ttf"]:
+    try:
+        font = ImageFont.truetype(font_name, 160)
+        break
+    except Exception:
+        continue
+if font is None:
+    font = ImageFont.load_default()
 
 bbox = draw.textbbox((0, 0), "剧", font=font)
 tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
@@ -34,4 +40,4 @@ draw.text((x, y), "剧", fill=(255, 255, 255, 255), font=font)
 # 保存为 ico
 os.makedirs("assets", exist_ok=True)
 img.save("assets/app.ico", format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
-print("图标已生成: assets/app.ico")
+print("Icon generated: assets/app.ico")
