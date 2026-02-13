@@ -60,7 +60,6 @@ class MonthView:
 
         tk.Button(toolbar, text="导入", font=FONT, command=self._import_data).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="匹配", font=FONT, command=self._run_match).pack(side=tk.LEFT, padx=4)
-        tk.Button(toolbar, text="重新匹配", font=FONT, command=self._run_match).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="手动添加", font=FONT, command=self._manual_add).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="列求和", font=FONT, command=self._column_sum_dialog).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="隐藏列", font=FONT, command=self._toggle_columns_dialog).pack(side=tk.LEFT, padx=4)
