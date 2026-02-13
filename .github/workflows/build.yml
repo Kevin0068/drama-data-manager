@@ -25,7 +25,12 @@ jobs:
       - name: Build exe
         run: pyinstaller build.spec
 
-      - name: Upload Release Asset
+      - name: Build installer
+        run: iscc installer.iss
+
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/DramaDataManager.exe
+          files: |
+            dist/DramaDataManager.exe
+            installer_output/DramaDataManager_Setup.exe
