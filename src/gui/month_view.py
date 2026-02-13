@@ -38,6 +38,7 @@ class MonthView:
         self.search_var = tk.StringVar()
         self._sort_col: int | None = None
         self._sort_reverse: bool = False
+        self._displayed_original_indices: list[int | None] = []
 
         self._build()
         self._load_data()
@@ -58,6 +59,8 @@ class MonthView:
         tk.Button(toolbar, text="导入", font=FONT, command=self._import_data).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="匹配", font=FONT, command=self._run_match).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="重新匹配", font=FONT, command=self._run_match).pack(side=tk.LEFT, padx=4)
+        tk.Button(toolbar, text="手动添加", font=FONT, command=self._manual_add).pack(side=tk.LEFT, padx=4)
+        tk.Button(toolbar, text="列求和", font=FONT, command=self._column_sum_dialog).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="导出", font=FONT, command=self._export_data).pack(side=tk.LEFT, padx=4)
 
         # 视图切换
@@ -85,7 +88,7 @@ class MonthView:
         table_frame = tk.Frame(self.parent)
         table_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=4)
 
-        self.tree = ttk.Treeview(table_frame, show="headings")
+        self.tree = ttk.Treeview(table_frame, show="headings", selectmode="extended")
 
         vsb = tk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
         hsb = tk.Scrollbar(table_frame, orient=tk.HORIZONTAL, command=self.tree.xview)
@@ -129,15 +132,21 @@ class MonthView:
         cols = [f"c{i}" for i in range(len(self.headers))]
         self.tree["columns"] = cols
 
-        # 筛选行（视图模式）
-        filtered = filter_rows(self.all_rows, self.matched_indices, self.view_mode.get())
+        # 筛选行（视图模式） - 保留原始索引
+        matched_set_filter = set(self.matched_indices)
+        if self.view_mode.get() == "all":
+            indexed_rows = list(enumerate(self.all_rows))
+        elif self.view_mode.get() == "matched":
+            indexed_rows = [(i, row) for i, row in enumerate(self.all_rows) if i in matched_set_filter]
+        else:
+            indexed_rows = [(i, row) for i, row in enumerate(self.all_rows) if i not in matched_set_filter]
 
         # 搜索过滤
         keyword = self.search_var.get().strip()
         if keyword:
             keyword_lower = keyword.lower()
-            filtered = [
-                row for row in filtered
+            indexed_rows = [
+                (i, row) for i, row in indexed_rows
                 if any(keyword_lower in str(v).lower() for v in row if v is not None)
             ]
 
@@ -145,7 +154,8 @@ class MonthView:
         if self._sort_col is not None and self._sort_col < len(self.headers):
             col_idx = self._sort_col
 
-            def sort_key(row):
+            def sort_key(item):
+                row = item[1]
                 if col_idx >= len(row) or row[col_idx] is None:
                     return (1, "")
                 val = row[col_idx]
@@ -153,13 +163,13 @@ class MonthView:
                     return (0, val)
                 return (1, str(val).lower())
 
-            filtered = sorted(filtered, key=sort_key, reverse=self._sort_reverse)
+            indexed_rows = sorted(indexed_rows, key=sort_key, reverse=self._sort_reverse)
 
         # 计算列宽
         col_widths = []
         for i, header in enumerate(self.headers):
             max_len = len(str(header))
-            for row in filtered[:50]:
+            for _, row in indexed_rows[:50]:
                 if i < len(row) and row[i] is not None:
                     max_len = max(max_len, len(str(row[i])))
             width = min(max(max_len * 12 + 20, 60), 300)
@@ -174,12 +184,20 @@ class MonthView:
             self.tree.column(cols[i], width=col_widths[i], minwidth=50, stretch=False)
 
         # 插入数据行
-        for row in filtered:
+        self._displayed_original_indices = []
+        matched_set = set(self.matched_indices)
+        for orig_idx, row in indexed_rows:
+            self._displayed_original_indices.append(orig_idx)
             values = [str(v) if v is not None else "" for v in row]
             while len(values) < len(self.headers):
                 values.append("")
-            self.tree.insert("", tk.END, values=values)
+            tag = "matched" if orig_idx in matched_set else ""
+            self.tree.insert("", tk.END, values=values, tags=(tag,))
 
+        # 高亮匹配行
+        self.tree.tag_configure("matched", background="#FFFFCC")
+
+        filtered = [row for _, row in indexed_rows]
         self._update_stats(filtered)
 
     def _on_sort(self, col_index: int):
@@ -339,6 +357,159 @@ class MonthView:
             )
         except Exception as e:
             messagebox.showerror("导出失败", str(e), parent=self.parent)
+
+    def _manual_add(self):
+        """手动将选中的未匹配行添加为匹配，同时将剧名存入剧名库。"""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showinfo("提示", "请先在表格中选择要添加的行", parent=self.parent)
+            return
+
+        # 找到剧名列
+        try:
+            col_index = MatchEngine.find_column_index(self.headers)
+        except ValueError:
+            col_index = self._ask_column_index()
+            if col_index is None:
+                return
+
+        matched_set = set(self.matched_indices)
+        added_names = []
+        added_count = 0
+        all_items = self.tree.get_children()
+
+        for item in selected:
+            # 找到该 item 在显示列表中的位置
+            display_idx = all_items.index(item)
+            if display_idx < len(self._displayed_original_indices):
+                orig_idx = self._displayed_original_indices[display_idx]
+                if orig_idx is not None and orig_idx not in matched_set:
+                    matched_set.add(orig_idx)
+                    added_count += 1
+                    # 获取剧名
+                    if col_index < len(self.all_rows[orig_idx]):
+                        name = str(self.all_rows[orig_idx][col_index]).strip()
+                        if name:
+                            added_names.append(name)
+
+        if added_count == 0:
+            messagebox.showinfo("提示", "选中的行已全部匹配", parent=self.parent)
+            return
+
+        # 更新匹配结果
+        self.matched_indices = sorted(matched_set)
+        self.data_dao.save_match_results(self.month_id, self.matched_indices)
+
+        # 将剧名存入剧名库
+        if added_names:
+            new_count = self.drama_dao.add_batch(self.backend_id, added_names)
+
+        self._refresh_table()
+
+        names_str = "、".join(added_names[:5])
+        if len(added_names) > 5:
+            names_str += f" 等{len(added_names)}个"
+        messagebox.showinfo(
+            "手动添加",
+            f"已添加 {added_count} 行为匹配\n剧名已存入剧名库: {names_str}",
+            parent=self.parent,
+        )
+
+    def _column_sum_dialog(self):
+        """弹出对话框让用户勾选列，计算选中列的求和。"""
+        if not self.headers or not self.all_rows:
+            messagebox.showinfo("提示", "没有数据", parent=self.parent)
+            return
+
+        # 找出数值列
+        numeric_cols = []
+        for i in range(len(self.headers)):
+            for row in self.all_rows:
+                if i < len(row) and isinstance(row[i], (int, float)):
+                    numeric_cols.append(i)
+                    break
+
+        if not numeric_cols:
+            messagebox.showinfo("提示", "没有可求和的数值列", parent=self.parent)
+            return
+
+        dialog = tk.Toplevel(self.parent)
+        dialog.title("选择求和列")
+        dialog.transient(self.parent)
+        dialog.grab_set()
+        dialog.geometry("400x500")
+
+        tk.Label(dialog, text="请勾选要求和的列：", font=FONT).pack(pady=(12, 4))
+
+        # 数据范围选择
+        range_frame = tk.Frame(dialog)
+        range_frame.pack(fill=tk.X, padx=16, pady=4)
+        range_var = tk.StringVar(value="displayed")
+        tk.Radiobutton(range_frame, text="当前显示行", variable=range_var,
+                        value="displayed", font=FONT_SMALL).pack(side=tk.LEFT, padx=4)
+        tk.Radiobutton(range_frame, text="全部行", variable=range_var,
+                        value="all", font=FONT_SMALL).pack(side=tk.LEFT, padx=4)
+
+        # 列勾选
+        check_frame = tk.Frame(dialog)
+        check_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=4)
+
+        canvas = tk.Canvas(check_frame)
+        scrollbar = tk.Scrollbar(check_frame, orient=tk.VERTICAL, command=canvas.yview)
+        inner_frame = tk.Frame(canvas)
+
+        inner_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        col_vars = {}
+        for col_idx in numeric_cols:
+            var = tk.BooleanVar(value=False)
+            col_vars[col_idx] = var
+            tk.Checkbutton(inner_frame, text=self.headers[col_idx],
+                           variable=var, font=FONT).pack(anchor=tk.W, pady=2)
+
+        # 结果区域
+        result_text = tk.Text(dialog, font=FONT_SMALL, height=6, state=tk.DISABLED)
+        result_text.pack(fill=tk.X, padx=16, pady=4)
+
+        def _calc():
+            selected_cols = [idx for idx, var in col_vars.items() if var.get()]
+            if not selected_cols:
+                messagebox.showinfo("提示", "请至少选择一列", parent=dialog)
+                return
+
+            if range_var.get() == "displayed":
+                rows = filter_rows(self.all_rows, self.matched_indices, self.view_mode.get())
+                keyword = self.search_var.get().strip()
+                if keyword:
+                    keyword_lower = keyword.lower()
+                    rows = [r for r in rows if any(keyword_lower in str(v).lower() for v in r if v is not None)]
+            else:
+                rows = self.all_rows
+
+            lines = [f"数据范围: {'当前显示' if range_var.get() == 'displayed' else '全部'} ({len(rows)} 行)\n"]
+            for col_idx in selected_cols:
+                total = 0.0
+                count = 0
+                for row in rows:
+                    if col_idx < len(row) and isinstance(row[col_idx], (int, float)):
+                        total += row[col_idx]
+                        count += 1
+                lines.append(f"{self.headers[col_idx]}: {self._format_number(total)}  ({count} 个数值)")
+
+            result_text.config(state=tk.NORMAL)
+            result_text.delete("1.0", tk.END)
+            result_text.insert("1.0", "\n".join(lines))
+            result_text.config(state=tk.DISABLED)
+
+        btn_frame = tk.Frame(dialog)
+        btn_frame.pack(pady=(0, 12))
+        tk.Button(btn_frame, text="计算", font=FONT, command=_calc).pack(side=tk.LEFT, padx=8)
+        tk.Button(btn_frame, text="关闭", font=FONT, command=dialog.destroy).pack(side=tk.LEFT, padx=8)
 
     def _go_back(self):
         """返回后台界面。"""
