@@ -198,12 +198,32 @@ def _download_and_replace(dialog, root, url, progress_var, progress_label, updat
 
 
 def _replace_and_restart(current_exe: str, new_exe: str):
-    """创建 bat 脚本：等待当前进程退出 → 替换 exe → 重启 → 删除 bat。"""
+    """创建 bat 脚本：等待当前进程退出 → 清理 _MEI 临时目录 → 替换 exe → 重启。"""
     bat_path = os.path.join(tempfile.gettempdir(), "_drama_update.bat")
+    pid = os.getpid()
+    # 获取 PyInstaller 的 _MEI 临时目录
+    mei_dir = getattr(sys, '_MEIPASS', '')
     bat_content = f'''@echo off
 chcp 65001 >nul
 echo 正在更新，请稍候...
-timeout /t 2 /nobreak >nul
+
+:: 等待旧进程彻底退出
+:wait_exit
+tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul
+if not errorlevel 1 (
+    timeout /t 1 /nobreak >nul
+    goto wait_exit
+)
+
+:: 额外等待确保文件句柄释放
+timeout /t 3 /nobreak >nul
+
+:: 清理旧的 _MEI 临时目录
+if exist "{mei_dir}" (
+    rmdir /s /q "{mei_dir}" >nul 2>&1
+)
+
+:: 替换 exe
 :retry
 del "{current_exe}" >nul 2>&1
 if exist "{current_exe}" (
@@ -211,6 +231,9 @@ if exist "{current_exe}" (
     goto retry
 )
 move /y "{new_exe}" "{current_exe}"
+
+:: 等待一下再启动新版本
+timeout /t 2 /nobreak >nul
 start "" "{current_exe}"
 del "%~f0"
 '''

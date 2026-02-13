@@ -1,6 +1,6 @@
 [Setup]
 AppName=剧名数据管理系统
-AppVersion=1.0.8
+AppVersion=1.0.9
 DefaultDirName={autopf}\DramaDataManager
 DefaultGroupName=剧名数据管理系统
 OutputDir=installer_output
