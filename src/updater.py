@@ -110,11 +110,13 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     btn_frame = tk.Frame(dialog)
     btn_frame.pack(side=tk.BOTTOM, pady=(0, 16))
 
+    # 进度条 - 一开始就 pack，默认显示 0%
     progress_frame = tk.Frame(dialog)
+    progress_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=16, pady=(0, 8))
     progress_var = tk.DoubleVar(value=0)
     ttk.Progressbar(progress_frame, variable=progress_var,
                      maximum=100, length=400).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
-    progress_label = tk.Label(progress_frame, text="0%", font=FONT_SMALL)
+    progress_label = tk.Label(progress_frame, text="等待下载", font=FONT_SMALL)
     progress_label.pack(side=tk.RIGHT)
 
     update_btn = tk.Button(btn_frame, text="立即更新", font=FONT)
@@ -137,7 +139,7 @@ def _show_update_dialog(root: tk.Tk, new_version: str, changelog: str, download_
     def _do_update():
         update_btn.config(state=tk.DISABLED, text="下载中...")
         cancel_btn.config(state=tk.DISABLED)
-        progress_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=16, pady=(0, 8))
+        progress_label.config(text="0%")
         _download_and_install(dialog, root, download_url,
                               progress_var, progress_label, update_btn)
 
@@ -180,20 +182,36 @@ def _download_and_install(dialog, root, url, progress_var, progress_label, updat
         # 获取当前 exe 路径，安装完成后重新启动
         exe_path = sys.executable
 
-        # 运行安装包（静默模式），安装完成后自动启动应用
-        # 使用 cmd /c 等待安装完成后再启动
+        # 写一个独立 bat 脚本：等待当前进程退出 → 运行安装 → 启动新版本
         try:
+            current_pid = os.getpid()
             bat_content = (
                 f'@echo off\n'
+                f'echo Waiting for old process to exit...\n'
+                f':wait_loop\n'
+                f'tasklist /FI "PID eq {current_pid}" 2>NUL | find /I "{current_pid}" >NUL\n'
+                f'if not errorlevel 1 (\n'
+                f'    timeout /t 1 /nobreak >NUL\n'
+                f'    goto wait_loop\n'
+                f')\n'
+                f'echo Installing update...\n'
                 f'"{setup_path}" /SILENT /CLOSEAPPLICATIONS /NORESTART\n'
+                f'echo Starting application...\n'
                 f'start "" "{exe_path}"\n'
                 f'del "%~f0"\n'
             )
             bat_path = os.path.join(tempfile.gettempdir(), "drama_update.bat")
             with open(bat_path, "w", encoding="gbk") as f:
                 f.write(bat_content)
-            subprocess.Popen(["cmd", "/c", bat_path],
-                             creationflags=subprocess.CREATE_NO_WINDOW, shell=False)
+            # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP 确保 bat 脚本独立运行
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            subprocess.Popen(
+                ["cmd", "/c", bat_path],
+                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                close_fds=True,
+                shell=False,
+            )
         except Exception:
             # fallback: 直接运行安装包
             try:
