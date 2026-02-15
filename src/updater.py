@@ -179,7 +179,9 @@ def _download_and_install(dialog, root, url, progress_var, progress_label, updat
             dialog.destroy()
             return
 
-        # 获取当前进程信息
+        # 获取安装目录路径（固定路径，不依赖旧的临时目录）
+        install_exe = os.path.join(os.environ.get("ProgramFiles", "C:\\Program Files"),
+                                   "DramaDataManager", "DramaDataManager.exe")
         current_pid = os.getpid()
         tmp_dir = tempfile.gettempdir()
 
@@ -187,7 +189,7 @@ def _download_and_install(dialog, root, url, progress_var, progress_label, updat
         bat_path = os.path.join(tmp_dir, "drama_update.bat")
         vbs_path = os.path.join(tmp_dir, "drama_update.vbs")
 
-        # 不手动 start exe，让 Inno Setup 的 [Run] 段自动启动新版本
+        # 等旧进程退出 → 运行安装 → 启动安装目录中的新 exe
         bat_content = (
             f'@echo off\r\n'
             f':wait_loop\r\n'
@@ -197,7 +199,9 @@ def _download_and_install(dialog, root, url, progress_var, progress_label, updat
             f'    goto wait_loop\r\n'
             f')\r\n'
             f'timeout /t 2 /nobreak >NUL\r\n'
-            f'"{setup_path}" /SILENT /CLOSEAPPLICATIONS\r\n'
+            f'"{setup_path}" /SILENT /CLOSEAPPLICATIONS /NORESTART\r\n'
+            f'timeout /t 2 /nobreak >NUL\r\n'
+            f'start "" "{install_exe}"\r\n'
             f'del "{bat_path}"\r\n'
             f'del "{vbs_path}"\r\n'
         )
