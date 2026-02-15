@@ -41,6 +41,7 @@ class MonthView:
         self._displayed_original_indices: list[int | None] = []
         self._hidden_cols: set[int] = set()
         self._selected_cell_value: str = ""
+        self._zoom_level: int = 100  # 缩放百分比
 
         self._build()
         self._load_data()
@@ -65,6 +66,16 @@ class MonthView:
         tk.Button(toolbar, text="隐藏列", font=FONT, command=self._toggle_columns_dialog).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="剧名库", font=FONT, command=self._open_drama_library).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="导出", font=FONT, command=self._export_data).pack(side=tk.LEFT, padx=4)
+
+        # 缩放控件
+        zoom_frame = tk.Frame(toolbar)
+        zoom_frame.pack(side=tk.LEFT, padx=(12, 4))
+        tk.Button(zoom_frame, text="－", font=FONT_SMALL, width=2,
+                  command=lambda: self._set_zoom(-10)).pack(side=tk.LEFT)
+        self._zoom_label = tk.Label(zoom_frame, text="100%", font=FONT_SMALL, width=5)
+        self._zoom_label.pack(side=tk.LEFT)
+        tk.Button(zoom_frame, text="＋", font=FONT_SMALL, width=2,
+                  command=lambda: self._set_zoom(10)).pack(side=tk.LEFT)
 
         # 视图切换
         view_frame = tk.Frame(toolbar)
@@ -636,6 +647,26 @@ class MonthView:
                 self.parent.clipboard_clear()
                 self.parent.clipboard_append(text)
                 self.cell_label.config(text=f"已复制 {len(selected)} 行")
+
+    def _set_zoom(self, delta: int):
+        """调整缩放比例，范围 50%-200%。"""
+        new_zoom = max(50, min(200, self._zoom_level + delta))
+        if new_zoom == self._zoom_level:
+            return
+        self._zoom_level = new_zoom
+        self._zoom_label.config(text=f"{new_zoom}%")
+        self._apply_zoom()
+        self._refresh_table()
+
+    def _apply_zoom(self):
+        """根据缩放比例调整表格字体和行高。"""
+        scale = self._zoom_level / 100.0
+        font_size = max(8, int(11 * scale))
+        row_height = max(18, int(24 * scale))
+
+        style = ttk.Style()
+        style.configure("Treeview", font=("Microsoft YaHei", font_size), rowheight=row_height)
+        style.configure("Treeview.Heading", font=("Microsoft YaHei", font_size, "bold"))
 
     def _open_drama_library(self):
         """打开剧名库管理对话框。"""
