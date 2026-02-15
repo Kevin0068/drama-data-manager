@@ -70,12 +70,14 @@ class MonthView:
         # 缩放控件
         zoom_frame = tk.Frame(toolbar)
         zoom_frame.pack(side=tk.LEFT, padx=(12, 4))
-        tk.Button(zoom_frame, text="－", font=FONT_SMALL, width=2,
-                  command=lambda: self._set_zoom(-10)).pack(side=tk.LEFT)
+        tk.Label(zoom_frame, text="缩放:", font=FONT_SMALL).pack(side=tk.LEFT)
+        self._zoom_var = tk.IntVar(value=100)
+        zoom_scale = tk.Scale(zoom_frame, from_=50, to=200, orient=tk.HORIZONTAL,
+                              variable=self._zoom_var, length=120, showvalue=False,
+                              resolution=10, command=lambda v: self._on_zoom_change(int(v)))
+        zoom_scale.pack(side=tk.LEFT, padx=2)
         self._zoom_label = tk.Label(zoom_frame, text="100%", font=FONT_SMALL, width=5)
         self._zoom_label.pack(side=tk.LEFT)
-        tk.Button(zoom_frame, text="＋", font=FONT_SMALL, width=2,
-                  command=lambda: self._set_zoom(10)).pack(side=tk.LEFT)
 
         # 视图切换
         view_frame = tk.Frame(toolbar)
@@ -654,7 +656,17 @@ class MonthView:
         if new_zoom == self._zoom_level:
             return
         self._zoom_level = new_zoom
+        self._zoom_var.set(new_zoom)
         self._zoom_label.config(text=f"{new_zoom}%")
+        self._apply_zoom()
+        self._refresh_table()
+
+    def _on_zoom_change(self, value: int):
+        """滑块拖动时调整缩放。"""
+        if value == self._zoom_level:
+            return
+        self._zoom_level = value
+        self._zoom_label.config(text=f"{value}%")
         self._apply_zoom()
         self._refresh_table()
 
