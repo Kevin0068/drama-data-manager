@@ -179,39 +179,43 @@ def _download_and_install(dialog, root, url, progress_var, progress_label, updat
             dialog.destroy()
             return
 
-        # 获取当前 exe 路径，安装完成后重新启动
+        # 获取当前 exe 路径和安装目录
         exe_path = sys.executable
+        current_pid = os.getpid()
+        tmp_dir = tempfile.gettempdir()
 
-        # 写一个独立 bat 脚本：等待当前进程退出 → 运行安装 → 启动新版本
+        # 用 VBS 脚本启动 bat，确保完全独立于当前进程
+        bat_path = os.path.join(tmp_dir, "drama_update.bat")
+        vbs_path = os.path.join(tmp_dir, "drama_update.vbs")
+
+        bat_content = (
+            f'@echo off\r\n'
+            f':wait_loop\r\n'
+            f'tasklist /FI "PID eq {current_pid}" 2>NUL | find /I "{current_pid}" >NUL\r\n'
+            f'if not errorlevel 1 (\r\n'
+            f'    timeout /t 1 /nobreak >NUL\r\n'
+            f'    goto wait_loop\r\n'
+            f')\r\n'
+            f'timeout /t 2 /nobreak >NUL\r\n'
+            f'"{setup_path}" /SILENT /CLOSEAPPLICATIONS /NORESTART\r\n'
+            f'timeout /t 2 /nobreak >NUL\r\n'
+            f'start "" "{exe_path}"\r\n'
+            f'del "{bat_path}"\r\n'
+            f'del "{vbs_path}"\r\n'
+        )
+
+        vbs_content = (
+            f'Set WshShell = CreateObject("WScript.Shell")\r\n'
+            f'WshShell.Run """cmd"" /c ""{bat_path}""""", 0, False\r\n'
+        )
+
         try:
-            current_pid = os.getpid()
-            bat_content = (
-                f'@echo off\n'
-                f'echo Waiting for old process to exit...\n'
-                f':wait_loop\n'
-                f'tasklist /FI "PID eq {current_pid}" 2>NUL | find /I "{current_pid}" >NUL\n'
-                f'if not errorlevel 1 (\n'
-                f'    timeout /t 1 /nobreak >NUL\n'
-                f'    goto wait_loop\n'
-                f')\n'
-                f'echo Installing update...\n'
-                f'"{setup_path}" /SILENT /CLOSEAPPLICATIONS /NORESTART\n'
-                f'echo Starting application...\n'
-                f'start "" "{exe_path}"\n'
-                f'del "%~f0"\n'
-            )
-            bat_path = os.path.join(tempfile.gettempdir(), "drama_update.bat")
             with open(bat_path, "w", encoding="gbk") as f:
                 f.write(bat_content)
-            # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP 确保 bat 脚本独立运行
-            DETACHED_PROCESS = 0x00000008
-            CREATE_NEW_PROCESS_GROUP = 0x00000200
-            subprocess.Popen(
-                ["cmd", "/c", bat_path],
-                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
-                close_fds=True,
-                shell=False,
-            )
+            with open(vbs_path, "w", encoding="gbk") as f:
+                f.write(vbs_content)
+            # wscript 启动 VBS，VBS 启动隐藏的 cmd，完全独立
+            os.startfile(vbs_path)
         except Exception:
             # fallback: 直接运行安装包
             try:
