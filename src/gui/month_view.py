@@ -63,6 +63,7 @@ class MonthView:
         tk.Button(toolbar, text="手动添加", font=FONT, command=self._manual_add).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="列求和", font=FONT, command=self._column_sum_dialog).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="隐藏列", font=FONT, command=self._toggle_columns_dialog).pack(side=tk.LEFT, padx=4)
+        tk.Button(toolbar, text="剧名库", font=FONT, command=self._open_drama_library).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="导出", font=FONT, command=self._export_data).pack(side=tk.LEFT, padx=4)
 
         # 视图切换
@@ -635,6 +636,11 @@ class MonthView:
                 self.parent.clipboard_clear()
                 self.parent.clipboard_append(text)
                 self.cell_label.config(text=f"已复制 {len(selected)} 行")
+
+    def _open_drama_library(self):
+        """打开剧名库管理对话框。"""
+        from src.gui.drama_library_dialog import DramaLibraryDialog
+        DramaLibraryDialog(self.parent, self.db, self.backend_id)
 
     def _go_back(self):
         """返回后台界面。"""
