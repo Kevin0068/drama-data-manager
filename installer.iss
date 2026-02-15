@@ -1,6 +1,6 @@
 [Setup]
 AppName=剧名数据管理系统
-AppVersion=1.1.5
+AppVersion=1.1.6
 AppId={{B5E2D8A1-3F4C-4A7B-9D6E-1C8F0A2B3D4E}
 DefaultDirName={autopf}\DramaDataManager
 DefaultGroupName=剧名数据管理系统
