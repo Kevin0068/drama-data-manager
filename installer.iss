@@ -1,6 +1,6 @@
 [Setup]
 AppName=剧名数据管理系统
-AppVersion=1.1.8
+AppVersion=1.1.9
 AppId={{B5E2D8A1-3F4C-4A7B-9D6E-1C8F0A2B3D4E}
 DefaultDirName={autopf}\DramaDataManager
 DefaultGroupName=剧名数据管理系统
@@ -22,4 +22,4 @@ Name: "{group}\剧名数据管理系统"; Filename: "{app}\DramaDataManager.exe"
 Name: "{commondesktop}\剧名数据管理系统"; Filename: "{app}\DramaDataManager.exe"; IconFilename: "{app}\app.ico"
 
 [Run]
-Filename: "{app}\DramaDataManager.exe"; Description: "启动剧名数据管理系统"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\DramaDataManager.exe"; Description: "启动剧名数据管理系统"; Flags: nowait postinstall
